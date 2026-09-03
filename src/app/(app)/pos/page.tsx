@@ -12,19 +12,32 @@ export default async function PosPage() {
   if (!(await isAuthenticated())) redirect("/login");
   if (!isDatabaseConfigured) return <DatabaseSetup />;
 
-  const products = await prisma.product.findMany({
-    where: { isActive: true, stockQuantity: { gt: 0 } },
-    orderBy: [{ brand: "asc" }, { name: "asc" }],
-    select: {
-      id: true,
-      sku: true,
-      name: true,
-      brand: true,
-      category: true,
-      price: true,
-      stockQuantity: true,
-    },
-  });
+  const [products, popupStalls] = await Promise.all([
+    prisma.product.findMany({
+      where: { isActive: true, stockQuantity: { gt: 0 } },
+      orderBy: [{ brand: "asc" }, { name: "asc" }],
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        brand: true,
+        category: true,
+        price: true,
+        stockQuantity: true,
+      },
+    }),
+    prisma.popupStall.findMany({
+      where: { isActive: true },
+      orderBy: { startsAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        startsAt: true,
+        endsAt: true,
+      },
+    }),
+  ]);
 
   return (
     <div className="space-y-8">
@@ -37,6 +50,11 @@ export default async function PosPage() {
         products={products.map((product) => ({
           ...product,
           price: product.price.toString(),
+        }))}
+        popupStalls={popupStalls.map((stall) => ({
+          ...stall,
+          startsAt: stall.startsAt.toISOString(),
+          endsAt: stall.endsAt?.toISOString() ?? null,
         }))}
       />
     </div>

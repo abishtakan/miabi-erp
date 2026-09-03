@@ -38,7 +38,7 @@ export default async function DashboardPage() {
     }),
     prisma.orderItem.groupBy({
       by: ["brandAtCheckout"],
-      _sum: { lineTotal: true },
+      _sum: { netLineTotal: true },
     }),
     prisma.order.findMany({
       take: 10,
@@ -56,7 +56,7 @@ export default async function DashboardPage() {
   const brandRevenue = new Map(
     brandGroups.map((group) => [
       group.brandAtCheckout,
-      group._sum.lineTotal?.toString() ?? "0",
+      group._sum.netLineTotal?.toString() ?? "0",
     ]),
   );
   const channels = new Map(

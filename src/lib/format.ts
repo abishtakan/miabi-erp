@@ -11,12 +11,21 @@ const dateFormatter = new Intl.DateTimeFormat("en-LK", {
   timeZone: "Asia/Colombo",
 });
 
+const dayFormatter = new Intl.DateTimeFormat("en-LK", {
+  dateStyle: "medium",
+  timeZone: "Asia/Colombo",
+});
+
 export function formatLkr(value: string | number) {
   return currencyFormatter.format(Number(value));
 }
 
 export function formatColomboDate(value: Date | string) {
   return dateFormatter.format(new Date(value));
+}
+
+export function formatColomboDay(value: Date | string) {
+  return dayFormatter.format(new Date(value));
 }
 
 export function brandLabel(brand: "LOLARK" | "MUNDHANAI") {

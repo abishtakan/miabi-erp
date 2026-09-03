@@ -66,7 +66,11 @@ Use small local React components and native controls with Tailwind classes. The 
 - **Checkout controls:**
 
 1. The "Online / Pop-up" `ToggleGroup` (spanning full width).
-2. A large, full-width "Checkout" `Button` (White background, Black text, bold).
+2. A required event selector when Pop-up is active. Pop-up is the initial selection.
+3. An optional Percent / LKR discount control.
+4. Subtotal, discount, and final total, followed by a large full-width "Checkout" button.
+
+- **Mobile checkout:** Keep the catalog primary and show a persistent cart summary above bottom navigation. Open checkout in a bottom drawer so quantity, event, discount, and total controls remain reachable.
 
 ### B. Dashboard (/)
 
@@ -79,3 +83,9 @@ Use small local React components and native controls with Tailwind classes. The 
 - A straightforward `Table` component.
 - "Add Product" `Button` at the top right.
 - Use standard text inputs with sharp borders for quick editing.
+
+### D. Pop-up Stalls (/stalls)
+
+- Four top-level callouts: stall revenue, tracked expenses, net contribution, and stall orders.
+- Event cards show schedule, location, revenue, costs, net, and expense-category breakdown.
+- Keep Add Stall and Record Expense actions prominent without presenting this screen as full accounting.

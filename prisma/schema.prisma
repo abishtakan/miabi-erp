@@ -17,6 +17,19 @@ enum SalesChannel {
   POP_UP_STALL
 }
 
+enum DiscountType {
+  NONE
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum ExpenseCategory {
+  STALL_FEE
+  FOOD
+  TRANSPORT
+  OTHER
+}
+
 enum StockMovementType {
   OPENING
   SALE
@@ -45,15 +58,53 @@ model Product {
 
 model Order {
   id             String          @id @default(uuid()) @db.Uuid
+  subtotalAmount Decimal         @default(0) @map("subtotal_amount") @db.Decimal(12, 2)
+  discountType   DiscountType    @default(NONE) @map("discount_type")
+  discountValue  Decimal         @default(0) @map("discount_value") @db.Decimal(12, 2)
+  discountAmount Decimal         @default(0) @map("discount_amount") @db.Decimal(12, 2)
   totalAmount    Decimal         @map("total_amount") @db.Decimal(12, 2)
   salesChannel   SalesChannel    @map("sales_channel")
+  popupStallId   String?         @map("popup_stall_id") @db.Uuid
+  popupStall     PopupStall?     @relation(fields: [popupStallId], references: [id], onDelete: Restrict)
   items          OrderItem[]
   stockMovements StockMovement[]
   createdAt      DateTime        @default(now()) @map("created_at")
 
   @@index([createdAt(sort: Desc)])
   @@index([salesChannel, createdAt(sort: Desc)])
+  @@index([popupStallId, createdAt(sort: Desc)])
   @@map("orders")
+}
+
+model PopupStall {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @db.VarChar(100)
+  location  String?   @db.VarChar(120)
+  startsAt  DateTime  @map("starts_at")
+  endsAt    DateTime? @map("ends_at")
+  isActive  Boolean   @default(true) @map("is_active")
+  orders    Order[]
+  expenses  Expense[]
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([isActive, startsAt(sort: Desc)])
+  @@map("popup_stalls")
+}
+
+model Expense {
+  id           String          @id @default(uuid()) @db.Uuid
+  popupStallId String          @map("popup_stall_id") @db.Uuid
+  category     ExpenseCategory
+  amount       Decimal         @db.Decimal(12, 2)
+  note         String?         @db.VarChar(240)
+  incurredAt   DateTime        @map("incurred_at")
+  popupStall   PopupStall      @relation(fields: [popupStallId], references: [id], onDelete: Restrict)
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  @@index([popupStallId, incurredAt(sort: Desc)])
+  @@index([category])
+  @@map("expenses")
 }
 
 model OrderItem {
@@ -65,6 +116,8 @@ model OrderItem {
   quantity        Int
   priceAtCheckout Decimal @map("price_at_checkout") @db.Decimal(12, 2)
   lineTotal       Decimal @map("line_total") @db.Decimal(12, 2)
+  discountAmount  Decimal @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  netLineTotal    Decimal @default(0) @map("net_line_total") @db.Decimal(12, 2)
   order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product         Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 

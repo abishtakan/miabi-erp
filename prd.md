@@ -94,8 +94,10 @@ Users can:
 - Search products and filter by brand.
 - Tap a product to add one unit to the cart.
 - Increase, decrease, or remove cart quantities.
-- See each line total and the LKR order total.
-- Select exactly one required channel: `ONLINE` or `POP_UP_STALL`.
+- See the subtotal, discount, and final LKR order total.
+- Apply an optional order-level percentage or fixed-LKR discount.
+- Use `POP_UP_STALL` as the default channel, with `ONLINE` available as an explicit switch.
+- Select the specific active stall for every pop-up sale.
 - Submit the checkout once.
 
 Checkout rules:
@@ -103,6 +105,9 @@ Checkout rules:
 - The cart must contain at least one and no more than 50 distinct products.
 - Quantities must be positive integers and cannot exceed 999 per line.
 - The server reloads products and prices from the database; client totals are never trusted.
+- Percentage discounts must be between 0 and 100. Fixed discounts cannot exceed the subtotal.
+- The server recalculates and stores the subtotal, discount amount, and final total.
+- Online orders have no stall. New pop-up orders require a valid active stall.
 - Inactive, missing, or insufficient-stock products reject the entire checkout.
 - Stock is decremented with a conditional database update so concurrent sales cannot oversell.
 - Order, order items, stock deductions, and sale stock movements are committed in one Prisma transaction.
@@ -123,7 +128,23 @@ The dashboard shows:
 
 Revenue is based on checkout snapshots in `OrderItem`, so later product edits do not change historical brand or price reporting.
 
-### 5.4 Stock history
+### 5.4 Pop-up stalls and expenses
+
+Users can create, edit, archive, and restore pop-up stall events. Each stall has a name, optional location, start date/time, optional end date/time, and active status.
+
+Every pop-up order is attributed to one stall. The Stalls screen shows each event's:
+
+- Revenue after discounts.
+- Order count.
+- Tracked expenses.
+- Net contribution (`revenue - tracked expenses`).
+- Expense breakdown for stall fees, food, transport, and other costs.
+
+Users can add an expense with a category, LKR amount, date, and optional note. Expense entries are retained as business records. Full accounting profit is not implied: net contribution does not subtract product costs, taxes, or other overhead.
+
+Existing pop-up orders created before the stall feature remain valid with no stall attribution and continue to appear in overall channel totals.
+
+### 5.5 Stock history
 
 Every stock change creates a movement containing:
 
@@ -158,10 +179,11 @@ The MVP records this history for data integrity; a dedicated stock-history repor
 
 1. Open POS and tap available products.
 2. Correct quantities in the cart.
-3. Select Online or Pop-up stall.
-4. Review the LKR total and choose Complete sale.
-5. The server validates current products, prices, and stock and runs the checkout transaction.
-6. On success, show the order reference and refresh availability. On failure, keep the cart and show an actionable message.
+3. Confirm the default Pop-up stall channel and event, or switch to Online.
+4. Optionally add a percentage or fixed-LKR discount.
+5. Review the subtotal, discount, and final LKR total and choose Complete sale.
+6. The server validates current products, prices, discount, stall, and stock and runs the checkout transaction.
+7. On success, show the order reference and refresh availability. On failure, keep the cart and show an actionable message.
 
 ## 7. Data model
 
@@ -171,20 +193,30 @@ Current sellable catalog state. Price uses `Decimal(12,2)`; stock has a database
 
 ### Order
 
-Immutable sale header containing server-calculated total, sales channel, and creation time.
+Immutable sale header containing server-calculated subtotal, discount type/value/amount, final total, sales channel, optional stall, and creation time.
 
 ### OrderItem
 
-Immutable sale line containing product reference plus name, brand, unit-price, quantity, and line-total snapshots. Only one line per product is allowed in an order.
+Immutable sale line containing product reference plus name, brand, unit-price, quantity, gross line total, allocated discount, and net line total snapshots. Order discounts are allocated proportionally, with the final line absorbing decimal rounding, so brand totals exactly reconcile to order revenue. Only one line per product is allowed in an order.
 
 ### StockMovement
 
 Append-only inventory ledger linked to a product and, for sale movements, the related order.
 
+### PopupStall
+
+A named event with its schedule, optional location, active status, attributed orders, and expenses.
+
+### Expense
+
+A positive fixed-precision LKR cost attributed to one pop-up stall and categorized for event analysis.
+
 ### Enumerations
 
 - `Brand`: `LOLARK`, `MUNDHANAI`
 - `SalesChannel`: `ONLINE`, `POP_UP_STALL`
+- `DiscountType`: `NONE`, `PERCENTAGE`, `FIXED_AMOUNT`
+- `ExpenseCategory`: `STALL_FEE`, `FOOD`, `TRANSPORT`, `OTHER`
 - `StockMovementType`: `OPENING`, `SALE`, `RESTOCK`, `CORRECTION`
 
 The Prisma schema and checked-in SQL migration are the executable source of truth.
@@ -232,7 +264,7 @@ The Prisma schema and checked-in SQL migration are the executable source of trut
 
 ### Access
 
-- Unauthenticated users cannot open Dashboard, POS, or Inventory.
+- Unauthenticated users cannot open Dashboard, POS, Inventory, or Stalls.
 - An incorrect password shows an error and does not create a session.
 - Sign out clears the session.
 
@@ -246,25 +278,35 @@ The Prisma schema and checked-in SQL migration are the executable source of trut
 
 ### POS
 
-- The checkout button is unavailable without a cart and selected channel.
-- The displayed total equals the sum of cart lines in LKR.
+- Pop-up stall is selected as the initial channel.
+- The checkout button is unavailable without a cart or without a stall for a pop-up sale.
+- The displayed final total equals subtotal minus the validated discount.
 - The server uses database prices even if a request supplies altered client data.
-- A valid checkout creates one order, its items, sale movements, and exact stock decrements.
+- A valid checkout stores the server-calculated discount and stall attribution with the order, its items, sale movements, and exact stock decrements.
 - An invalid line rolls back the whole checkout.
 - Concurrent attempts to sell unavailable stock cannot both succeed.
+
+### Pop-up stalls
+
+- Active stalls are available in POS and archived stalls are not.
+- New pop-up orders cannot be created without a valid active stall.
+- Existing unattributed pop-up orders remain readable after migration.
+- Stall revenue equals the final totals of its orders.
+- Expense totals and category splits include only expenses attributed to that stall.
+- Net contribution equals stall revenue minus tracked stall expenses.
 
 ### Dashboard
 
 - Total revenue and order count cover all stored orders.
-- Brand totals use `brandAtCheckout` and line totals.
+- Brand totals use `brandAtCheckout` and net line totals after allocated discounts.
 - Channel totals use the order channel.
 - Recent orders are sorted newest first and limited to 10.
 
 ## 12. Non-goals for MVP
 
 - Product variants, barcode scanning, product photos, suppliers, or purchase orders.
-- Customer profiles, shipping, returns, refunds, discounts, taxes, or payment processing.
-- Expenses, profit, cost of goods, cash reconciliation, or accounting exports.
+- Customer profiles, shipping, returns, refunds, taxes, or payment processing.
+- Full profit accounting, cost of goods, cash reconciliation, recurring overhead, or accounting exports.
 - Multi-currency support; all values are LKR.
 - Individual user accounts, roles, or per-user audit history.
 - Offline checkout or conflict synchronization.
@@ -278,7 +320,8 @@ The Prisma schema and checked-in SQL migration are the executable source of trut
 3. Inventory catalog, editing, stock adjustment, and archiving.
 4. Transactional POS checkout with concurrency-safe stock validation.
 5. LKR dashboard and recent transactions.
-6. Prisma validation, lint, type-check, production build, and deployment documentation.
+6. Pop-up stall management, expense tracking, and per-stall analysis.
+7. Prisma validation, lint, type-check, production build, and deployment documentation.
 
 ## 14. Deployment and operating assumptions
 
@@ -287,4 +330,3 @@ The Prisma schema and checked-in SQL migration are the executable source of trut
 - Run `npm run db:seed` only when demo inventory is wanted.
 - HTTPS is required in production so the session cookie is secure.
 - PostgreSQL backups and Railway availability are operational responsibilities outside the application.
-

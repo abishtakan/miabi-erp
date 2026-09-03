@@ -1,6 +1,6 @@
 # MIABI Boutique Manager
 
-An internal, mobile-first inventory and point-of-sale application for MIABI's Lolark and Mundhanai brands. It records all money in LKR, protects checkout with database stock validation, and provides an all-time sales dashboard.
+An internal, mobile-first inventory and point-of-sale application for MIABI's Lolark and Mundhanai brands. It records all money in LKR, supports order discounts, protects checkout with database stock validation, and compares revenue and expenses across pop-up stalls.
 
 The complete product scope and business rules are in [`prd.md`](./prd.md). Visual direction is in [`DESIGN.md`](./DESIGN.md).
 
@@ -80,9 +80,12 @@ Do not run `prisma db push` against production. Use committed migrations so sche
 
 - Product, order, line-item, and movement values are validated again in Server Actions.
 - Checkout reloads prices from PostgreSQL and never accepts a client-calculated total.
+- Percentage and fixed-LKR discounts are recalculated on the server and allocated across order lines so brand totals reconcile.
+- Every new pop-up sale is attributed to an active stall; older unattributed orders remain compatible.
 - Conditional stock updates and a serializable transaction prevent overselling.
 - Orders, line items, stock decrements, and sale movements commit or roll back together.
 - Products are archived instead of deleted, and order items retain name, brand, and price snapshots.
+- Stall analysis reports revenue after discounts, tracked event expenses, and net contribution; it is not full profit accounting.
 
 ## MVP security boundary
 
