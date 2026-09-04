@@ -74,7 +74,7 @@ Use small local React components and native controls with Tailwind classes. The 
 
 ### B. Dashboard (/)
 
-- **Top:** Four large number callouts (Total Revenue, Total Orders, Lolark Revenue, Mundhanai Revenue) using large, stark typography (e.g., `text-4xl font-bold tracking-tighter`).
+- **Top:** Eight concise number callouts: revenue, recorded net profit, product cost, stall expenses, orders, discounts, and revenue for each brand. Use large, stark typography (e.g., `text-4xl font-bold tracking-tighter`).
 - **Middle:** Compact Online and Pop-up Stall revenue splits.
 - **Bottom:** A simple `Table` of recent transactions.
 
@@ -82,10 +82,12 @@ Use small local React components and native controls with Tailwind classes. The 
 
 - A straightforward `Table` component.
 - "Add Product" `Button` at the top right.
-- Use standard text inputs with sharp borders for quick editing.
+- Show selling price and unit product cost as distinct LKR columns.
+- Use standard text inputs with sharp borders for quick editing; require both selling price and product cost.
 
 ### D. Pop-up Stalls (/stalls)
 
-- Four top-level callouts: stall revenue, tracked expenses, net contribution, and stall orders.
-- Event cards show schedule, location, revenue, costs, net, and expense-category breakdown.
+- Five top-level callouts: stall revenue, product cost, tracked expenses, net contribution, and stall orders.
+- Event cards show schedule, location, revenue, product cost, expenses, net, and expense-category breakdown.
+- Net contribution is revenue after discounts minus checkout-snapshotted product cost and tracked event expenses.
 - Keep Add Stall and Record Expense actions prominent without presenting this screen as full accounting.

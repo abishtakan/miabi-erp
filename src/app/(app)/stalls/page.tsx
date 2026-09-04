@@ -28,7 +28,7 @@ export default async function StallsPage() {
       by: ["popupStallId"],
       where: { popupStallId: { not: null } },
       _count: { _all: true },
-      _sum: { totalAmount: true },
+      _sum: { totalAmount: true, costAmount: true },
     }),
     prisma.expense.groupBy({
       by: ["popupStallId", "category"],
@@ -57,6 +57,7 @@ export default async function StallsPage() {
         {
           orderCount: group._count._all,
           revenue: group._sum.totalAmount?.toString() ?? "0",
+          productCost: group._sum.costAmount?.toString() ?? "0",
         },
       ]),
   );
@@ -80,7 +81,7 @@ export default async function StallsPage() {
       <PageHeader
         eyebrow="Event performance"
         title="Pop-up stalls"
-        description="Attribute every stall sale and cost to the right event, then compare revenue, expenses, and net contribution."
+        description="Compare each event's revenue, checkout-snapshotted product cost, tracked expenses, and net contribution."
       />
       <StallsManager
         stalls={stalls.map((stall) => ({
@@ -88,6 +89,7 @@ export default async function StallsPage() {
           startsAt: stall.startsAt.toISOString(),
           endsAt: stall.endsAt?.toISOString() ?? null,
           revenue: ordersByStall.get(stall.id)?.revenue ?? "0",
+          productCost: ordersByStall.get(stall.id)?.productCost ?? "0",
           orderCount: ordersByStall.get(stall.id)?.orderCount ?? 0,
           expenses: expensesByStall.get(stall.id) ?? {
             STALL_FEE: "0",

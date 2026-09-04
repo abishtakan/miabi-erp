@@ -24,6 +24,7 @@ type StallSummary = {
   endsAt: string | null;
   isActive: boolean;
   revenue: string;
+  productCost: string;
   orderCount: number;
   expenses: Record<ExpenseCategory, string>;
 };
@@ -95,11 +96,12 @@ export function StallsManager({
       stalls.reduce(
         (summary, stall) => {
           summary.revenue += Number(stall.revenue);
+          summary.productCost += Number(stall.productCost);
           summary.expenses += totalExpenses(stall);
           summary.orders += stall.orderCount;
           return summary;
         },
-        { revenue: 0, expenses: 0, orders: 0 },
+        { revenue: 0, productCost: 0, expenses: 0, orders: 0 },
       ),
     [stalls],
   );
@@ -165,11 +167,12 @@ export function StallsManager({
 
   return (
     <div className="space-y-8">
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Pop-up totals">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" aria-label="Pop-up totals">
         {[
           ["Stall revenue", formatLkr(totals.revenue)],
+          ["Product cost", formatLkr(totals.productCost)],
           ["Tracked expenses", formatLkr(totals.expenses)],
-          ["Net contribution", formatLkr(totals.revenue - totals.expenses)],
+          ["Net contribution", formatLkr(totals.revenue - totals.productCost - totals.expenses)],
           ["Stall orders", totals.orders.toLocaleString("en-LK")],
         ].map(([label, value]) => (
           <div key={label} className="border border-zinc-800 bg-zinc-950 p-5">
@@ -284,7 +287,8 @@ export function StallsManager({
           <div className="grid gap-4 lg:grid-cols-2">
             {visibleStalls.map((stall) => {
               const expenses = totalExpenses(stall);
-              const net = Number(stall.revenue) - expenses;
+              const productCost = Number(stall.productCost);
+              const net = Number(stall.revenue) - productCost - expenses;
               return (
                 <article key={stall.id} className={`border border-zinc-800 bg-zinc-950 p-5 sm:p-6 ${stall.isActive ? "" : "opacity-60"}`}>
                   <div className="flex items-start justify-between gap-4">
@@ -296,10 +300,14 @@ export function StallsManager({
                     </div>
                     <p className="text-right text-xs text-zinc-600">{stall.orderCount} {stall.orderCount === 1 ? "order" : "orders"}</p>
                   </div>
-                  <dl className="mt-6 grid grid-cols-3 border-y border-zinc-800 py-4 text-center">
+                  <dl className="mt-6 grid grid-cols-2 border-y border-zinc-800 py-4 text-center sm:grid-cols-4">
                     <div className="border-r border-zinc-800 px-2">
                       <dt className="text-[10px] uppercase tracking-[0.12em] text-zinc-600">Revenue</dt>
                       <dd className="mt-2 text-sm font-black text-white">{formatLkr(stall.revenue)}</dd>
+                    </div>
+                    <div className="border-r border-zinc-800 px-2">
+                      <dt className="text-[10px] uppercase tracking-[0.12em] text-zinc-600">Product cost</dt>
+                      <dd className="mt-2 text-sm font-black text-zinc-300">{formatLkr(productCost)}</dd>
                     </div>
                     <div className="border-r border-zinc-800 px-2">
                       <dt className="text-[10px] uppercase tracking-[0.12em] text-zinc-600">Expenses</dt>

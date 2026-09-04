@@ -20,6 +20,7 @@ type InventoryProduct = {
   brand: "LOLARK" | "MUNDHANAI";
   category: string;
   price: string;
+  costPrice: string;
   stockQuantity: number;
   isActive: boolean;
 };
@@ -43,6 +44,7 @@ function readProduct(form: HTMLFormElement): ProductInput {
     brand: String(formData.get("brand") ?? ""),
     category: String(formData.get("category") ?? ""),
     price: String(formData.get("price") ?? ""),
+    costPrice: String(formData.get("costPrice") ?? ""),
     openingStock: String(formData.get("openingStock") ?? "0"),
   };
 }
@@ -93,8 +95,12 @@ function ProductForm({
           <input className={`${fieldClass} mt-2`} defaultValue={product?.category} maxLength={80} name="category" placeholder="Jhumka" required />
         </label>
         <label className="block text-xs font-bold uppercase tracking-[0.12em] text-zinc-400">
-          Price · LKR
+          Selling price · LKR
           <input className={`${fieldClass} mt-2`} defaultValue={product?.price} inputMode="decimal" min="0.01" name="price" placeholder="3250.00" required step="0.01" type="number" />
+        </label>
+        <label className="block text-xs font-bold uppercase tracking-[0.12em] text-zinc-400">
+          Product cost · LKR
+          <input className={`${fieldClass} mt-2`} defaultValue={product?.costPrice ?? "0.00"} inputMode="decimal" min="0" name="costPrice" placeholder="1500.00" required step="0.01" type="number" />
         </label>
         {!product ? (
           <label className="block text-xs font-bold uppercase tracking-[0.12em] text-zinc-400">
@@ -232,11 +238,17 @@ export function InventoryManager({ products }: { products: InventoryProduct[] })
     );
   }
 
+  const activeProducts = products.filter((product) => product.isActive);
+  const zeroCostProducts = activeProducts.filter(
+    (product) => Number(product.costPrice) === 0,
+  ).length;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-zinc-500">
-          {products.filter((product) => product.isActive).length} active products · {products.reduce((sum, product) => sum + product.stockQuantity, 0)} units
+          {activeProducts.length} active products · {products.reduce((sum, product) => sum + product.stockQuantity, 0)} units
+          {zeroCostProducts > 0 ? ` · ${zeroCostProducts} with zero cost` : ""}
         </p>
         <button className="min-h-11 bg-white px-5 text-xs font-black uppercase tracking-[0.12em] text-black hover:bg-zinc-200" onClick={() => { setPanel({ type: "add" }); setNotice(null); }} type="button">
           Add product
@@ -291,10 +303,14 @@ export function InventoryManager({ products }: { products: InventoryProduct[] })
                   </div>
                   <Badge muted={!product.isActive}>{product.isActive ? brandLabel(product.brand) : "Archived"}</Badge>
                 </div>
-                <div className="my-4 flex items-end justify-between border-y border-zinc-900 py-3">
+                <div className="my-4 grid grid-cols-3 items-end gap-3 border-y border-zinc-900 py-3">
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-600">Price</p>
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-600">Selling</p>
                     <p className="mt-1 text-sm font-bold text-zinc-200">{formatLkr(product.price)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-600">Cost</p>
+                    <p className="mt-1 text-sm font-bold text-zinc-400">{formatLkr(product.costPrice)}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-600">Stock</p>
@@ -307,12 +323,13 @@ export function InventoryManager({ products }: { products: InventoryProduct[] })
           </div>
 
           <div className="hidden overflow-x-auto border border-zinc-800 md:block">
-            <table className="w-full min-w-[860px] border-collapse text-left">
+            <table className="w-full min-w-[940px] border-collapse text-left">
               <thead className="bg-zinc-950 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
                 <tr>
                   <th className="px-4 py-3">Product</th>
                   <th className="px-4 py-3">Brand</th>
-                  <th className="px-4 py-3">Price</th>
+                  <th className="px-4 py-3">Selling price</th>
+                  <th className="px-4 py-3">Product cost</th>
                   <th className="px-4 py-3 text-right">Stock</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
@@ -326,6 +343,7 @@ export function InventoryManager({ products }: { products: InventoryProduct[] })
                     </td>
                     <td className="px-4 py-4"><Badge muted={!product.isActive}>{product.isActive ? brandLabel(product.brand) : "Archived"}</Badge></td>
                     <td className="px-4 py-4 text-sm font-bold tabular-nums text-zinc-300">{formatLkr(product.price)}</td>
+                    <td className="px-4 py-4 text-sm font-bold tabular-nums text-zinc-400">{formatLkr(product.costPrice)}</td>
                     <td className="px-4 py-4 text-right text-xl font-black tabular-nums text-white">{product.stockQuantity}</td>
                     <td className="px-4 py-4"><Actions product={product} /></td>
                   </tr>

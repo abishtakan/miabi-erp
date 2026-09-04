@@ -26,11 +26,22 @@ export default async function DashboardPage() {
   if (!(await isAuthenticated())) redirect("/login");
   if (!isDatabaseConfigured) return <DatabaseSetup />;
 
-  const [summary, channelGroups, brandGroups, recentOrders] = await Promise.all([
+  const [
+    summary,
+    expenseSummary,
+    zeroCostSaleLines,
+    channelGroups,
+    brandGroups,
+    recentOrders,
+  ] = await Promise.all([
     prisma.order.aggregate({
       _count: { _all: true },
-      _sum: { totalAmount: true },
+      _sum: { totalAmount: true, discountAmount: true, costAmount: true },
     }),
+    prisma.expense.aggregate({
+      _sum: { amount: true },
+    }),
+    prisma.orderItem.count({ where: { costAtCheckout: 0 } }),
     prisma.order.groupBy({
       by: ["salesChannel"],
       _count: { _all: true },
@@ -68,6 +79,10 @@ export default async function DashboardPage() {
       },
     ]),
   );
+  const revenue = Number(summary._sum.totalAmount?.toString() ?? "0");
+  const productCost = Number(summary._sum.costAmount?.toString() ?? "0");
+  const stallExpenses = Number(expenseSummary._sum.amount?.toString() ?? "0");
+  const netProfit = revenue - productCost - stallExpenses;
 
   return (
     <div className="space-y-10">
@@ -98,13 +113,33 @@ export default async function DashboardPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             label="Total revenue"
-            value={formatLkr(summary._sum.totalAmount?.toString() ?? "0")}
-            detail="Gross recorded sales"
+            value={formatLkr(revenue)}
+            detail="Sales after discounts"
+          />
+          <MetricCard
+            label="Recorded net profit"
+            value={formatLkr(netProfit)}
+            detail={zeroCostSaleLines > 0 ? `${zeroCostSaleLines} sold line(s) have zero recorded cost` : "Revenue minus product cost and stall expenses"}
+          />
+          <MetricCard
+            label="Product cost"
+            value={formatLkr(productCost)}
+            detail="Cost captured at checkout"
+          />
+          <MetricCard
+            label="Stall expenses"
+            value={formatLkr(stallExpenses)}
+            detail="Fees, food, transport, and other"
           />
           <MetricCard
             label="Total orders"
             value={summary._count._all.toLocaleString("en-LK")}
             detail="Successful checkouts"
+          />
+          <MetricCard
+            label="Discounts"
+            value={formatLkr(summary._sum.discountAmount?.toString() ?? "0")}
+            detail="Total checkout discounts"
           />
           <MetricCard
             label={brandLabel(Brand.LOLARK)}

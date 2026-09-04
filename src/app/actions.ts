@@ -25,6 +25,7 @@ export type ProductInput = {
   brand: string;
   category: string;
   price: string;
+  costPrice: string;
   openingStock?: string;
 };
 
@@ -160,6 +161,7 @@ function parseProduct(input: ProductInput, includeStock: boolean) {
     brand: parseBrand(input.brand),
     category: requiredText(input.category, "Category", 80),
     price: parsePrice(input.price),
+    costPrice: parseNonnegativeAmount(input.costPrice, "Product cost"),
     openingStock: includeStock
       ? parseInteger(input.openingStock ?? "0", "Opening stock", 0)
       : 0,
@@ -277,6 +279,7 @@ export async function createProduct(
         brand: product.brand,
         category: product.category,
         price: product.price,
+        costPrice: product.costPrice,
         stockQuantity: product.openingStock,
         stockMovements:
           product.openingStock > 0
@@ -318,6 +321,7 @@ export async function updateProduct(
         brand: product.brand,
         category: product.category,
         price: product.price,
+        costPrice: product.costPrice,
       },
     });
 
@@ -592,6 +596,7 @@ export async function checkout(
                 product,
                 quantity: item.quantity,
                 lineTotal: product.price.mul(item.quantity),
+                lineCostTotal: product.costPrice.mul(item.quantity),
               };
             });
 
@@ -613,6 +618,10 @@ export async function checkout(
               throw new InputError("Fixed discount cannot exceed the subtotal.");
             }
             const totalAmount = subtotalAmount.minus(discountAmount);
+            const costAmount = lines.reduce(
+              (total, line) => total.add(line.lineCostTotal),
+              new Prisma.Decimal(0),
+            );
             const discountedLines = allocateDiscount(
               lines,
               subtotalAmount,
@@ -627,6 +636,7 @@ export async function checkout(
                 discountType,
                 discountValue,
                 discountAmount,
+                costAmount,
                 totalAmount,
                 items: {
                   create: discountedLines.map((line) => ({
@@ -638,6 +648,8 @@ export async function checkout(
                     lineTotal: line.lineTotal,
                     discountAmount: line.lineDiscountAmount,
                     netLineTotal: line.netLineTotal,
+                    costAtCheckout: line.product.costPrice,
+                    lineCostTotal: line.lineCostTotal,
                   })),
                 },
               },

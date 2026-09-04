@@ -21,6 +21,7 @@ export default async function InventoryPage() {
       brand: true,
       category: true,
       price: true,
+      costPrice: true,
       stockQuantity: true,
       isActive: true,
     },
@@ -31,12 +32,13 @@ export default async function InventoryPage() {
       <PageHeader
         eyebrow="Catalog control"
         title="Inventory"
-        description="Maintain products, record stock changes, and archive anything that should no longer appear at checkout."
+        description="Maintain selling prices, unit product costs, stock, and the catalog available at checkout."
       />
       <InventoryManager
         products={products.map((product) => ({
           ...product,
           price: product.price.toString(),
+          costPrice: product.costPrice.toString(),
         }))}
       />
     </div>

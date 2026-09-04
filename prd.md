@@ -28,7 +28,7 @@ Pop-up stall sales are time-sensitive. The POS must be usable with one hand on a
 
 1. Let an authorized team member add, update, archive, and restock products.
 2. Complete a sale from an in-stock catalog with minimal taps.
-3. Preserve the product name, brand, and price that applied at checkout.
+3. Preserve the product name, brand, selling price, and unit product cost that applied at checkout.
 4. Keep orders, stock deductions, and stock history consistent in one database transaction.
 5. Show useful LKR revenue, order, brand, channel, and recent-order summaries.
 
@@ -69,6 +69,7 @@ Each product has:
 - Brand: `LOLARK` or `MUNDHANAI`.
 - Free-text category.
 - Selling price in LKR, with at most two decimal places.
+- Unit product cost in LKR, with at most two decimal places.
 - Non-negative stock quantity.
 - Active or archived status.
 - Created and last-updated timestamps.
@@ -78,7 +79,7 @@ Users can:
 - Search by SKU, name, or category.
 - Filter by brand and active/archived status.
 - Add a product with optional opening stock.
-- Edit SKU, name, brand, category, and selling price.
+- Edit SKU, name, brand, category, selling price, and product cost.
 - Increase stock for restocks or decrease stock for corrections.
 - Add a required reason for every manual stock adjustment.
 - Archive or restore a product.
@@ -119,6 +120,9 @@ Checkout rules:
 The dashboard shows:
 
 - Total revenue in LKR.
+- Product cost of goods sold in LKR.
+- Tracked stall expenses in LKR.
+- Recorded net profit (`revenue after discounts - product cost - tracked stall expenses`).
 - Total order count.
 - Lolark revenue.
 - Mundhanai revenue.
@@ -136,13 +140,16 @@ Every pop-up order is attributed to one stall. The Stalls screen shows each even
 
 - Revenue after discounts.
 - Order count.
+- Product cost of goods sold.
 - Tracked expenses.
-- Net contribution (`revenue - tracked expenses`).
+- Net contribution (`revenue - product cost - tracked expenses`).
 - Expense breakdown for stall fees, food, transport, and other costs.
 
-Users can add an expense with a category, LKR amount, date, and optional note. Expense entries are retained as business records. Full accounting profit is not implied: net contribution does not subtract product costs, taxes, or other overhead.
+Users can add an expense with a category, LKR amount, date, and optional note. Expense entries are retained as business records. Full accounting profit is not implied: recorded net profit includes product costs and tracked stall expenses but does not subtract taxes, salaries, recurring overhead, or unrecorded costs.
 
 Existing pop-up orders created before the stall feature remain valid with no stall attribution and continue to appear in overall channel totals.
+
+When product costing is first introduced, existing products and historical sales default to zero cost because their past purchase cost cannot be reconstructed safely. Users should enter current costs in Inventory; those changes affect future checkout snapshots only.
 
 ### 5.5 Stock history
 
@@ -189,15 +196,15 @@ The MVP records this history for data integrity; a dedicated stock-history repor
 
 ### Product
 
-Current sellable catalog state. Price uses `Decimal(12,2)`; stock has a database non-negative constraint.
+Current sellable catalog state. Selling price and product cost use `Decimal(12,2)`; stock and cost have database non-negative constraints.
 
 ### Order
 
-Immutable sale header containing server-calculated subtotal, discount type/value/amount, final total, sales channel, optional stall, and creation time.
+Immutable sale header containing server-calculated subtotal, discount type/value/amount, final total, cost of goods sold, sales channel, optional stall, and creation time.
 
 ### OrderItem
 
-Immutable sale line containing product reference plus name, brand, unit-price, quantity, gross line total, allocated discount, and net line total snapshots. Order discounts are allocated proportionally, with the final line absorbing decimal rounding, so brand totals exactly reconcile to order revenue. Only one line per product is allowed in an order.
+Immutable sale line containing product reference plus name, brand, unit selling price, unit cost, quantity, gross line total, allocated discount, net line total, and total product-cost snapshots. Order discounts are allocated proportionally, with the final line absorbing decimal rounding, so brand totals exactly reconcile to order revenue. Only one line per product is allowed in an order.
 
 ### StockMovement
 
@@ -225,7 +232,7 @@ The Prisma schema and checked-in SQL migration are the executable source of trut
 
 - Strict dark, monochrome interface following `DESIGN.md`.
 - Mobile-first layout with at least 44px touch targets.
-- Fixed mobile navigation for Dashboard, POS, and Inventory.
+- Fixed mobile navigation for Dashboard, POS, Inventory, and Stalls.
 - Sharp corners, no gradients, and no decorative shadows.
 - Semantic labels, keyboard-visible focus states, live action feedback, and sufficient contrast.
 - POS total and checkout controls remain easy to reach while scrolling.
@@ -271,7 +278,7 @@ The Prisma schema and checked-in SQL migration are the executable source of trut
 ### Inventory
 
 - Creating valid products updates Inventory and POS.
-- Duplicate SKU, invalid price, and negative opening stock are rejected.
+- Duplicate SKU, invalid selling price, negative cost, and negative opening stock are rejected.
 - Editing a product does not alter historical order snapshots.
 - A manual reduction below zero is rejected without creating a movement.
 - Archived products are visible in Inventory and absent from POS.
@@ -282,6 +289,7 @@ The Prisma schema and checked-in SQL migration are the executable source of trut
 - The checkout button is unavailable without a cart or without a stall for a pop-up sale.
 - The displayed final total equals subtotal minus the validated discount.
 - The server uses database prices even if a request supplies altered client data.
+- Checkout snapshots each product's current unit cost and exact line cost.
 - A valid checkout stores the server-calculated discount and stall attribution with the order, its items, sale movements, and exact stock decrements.
 - An invalid line rolls back the whole checkout.
 - Concurrent attempts to sell unavailable stock cannot both succeed.
@@ -293,11 +301,12 @@ The Prisma schema and checked-in SQL migration are the executable source of trut
 - Existing unattributed pop-up orders remain readable after migration.
 - Stall revenue equals the final totals of its orders.
 - Expense totals and category splits include only expenses attributed to that stall.
-- Net contribution equals stall revenue minus tracked stall expenses.
+- Net contribution equals stall revenue minus snapshotted product cost and tracked stall expenses.
 
 ### Dashboard
 
 - Total revenue and order count cover all stored orders.
+- Recorded net profit equals revenue after discounts minus snapshotted product cost and tracked stall expenses.
 - Brand totals use `brandAtCheckout` and net line totals after allocated discounts.
 - Channel totals use the order channel.
 - Recent orders are sorted newest first and limited to 10.
@@ -306,7 +315,7 @@ The Prisma schema and checked-in SQL migration are the executable source of trut
 
 - Product variants, barcode scanning, product photos, suppliers, or purchase orders.
 - Customer profiles, shipping, returns, refunds, taxes, or payment processing.
-- Full profit accounting, cost of goods, cash reconciliation, recurring overhead, or accounting exports.
+- Full accounting profit beyond recorded product costs and stall expenses, cash reconciliation, recurring overhead, salaries, taxes, or accounting exports.
 - Multi-currency support; all values are LKR.
 - Individual user accounts, roles, or per-user audit history.
 - Offline checkout or conflict synchronization.
