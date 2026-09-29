@@ -6,6 +6,7 @@ import { Badge, DatabaseSetup, EmptyState, PageHeader } from "@/components/ui";
 import { brandLabel, channelLabel, formatColomboDate, formatLkr } from "@/lib/format";
 import { isAuthenticated } from "@/lib/auth";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
+import { DeleteOrderButton } from "./delete-order-button";
 
 export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
@@ -49,7 +50,7 @@ export default async function DashboardPage() {
     }),
     prisma.orderItem.groupBy({
       by: ["brandAtCheckout"],
-      _sum: { netLineTotal: true },
+      _sum: { netLineTotal: true, lineCostTotal: true },
     }),
     prisma.order.findMany({
       take: 10,
@@ -64,11 +65,15 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  const brandRevenue = new Map(
-    brandGroups.map((group) => [
-      group.brandAtCheckout,
-      group._sum.netLineTotal?.toString() ?? "0",
-    ]),
+  const brandData = new Map(
+    brandGroups.map((group) => {
+      const revenue = Number(group._sum.netLineTotal?.toString() ?? "0");
+      const cost = Number(group._sum.lineCostTotal?.toString() ?? "0");
+      return [
+        group.brandAtCheckout,
+        { revenue, profit: revenue - cost },
+      ];
+    }),
   );
   const channels = new Map(
     channelGroups.map((group) => [
@@ -142,14 +147,24 @@ export default async function DashboardPage() {
             detail="Total checkout discounts"
           />
           <MetricCard
-            label={brandLabel(Brand.LOLARK)}
-            value={formatLkr(brandRevenue.get(Brand.LOLARK) ?? "0")}
-            detail="Revenue at checkout"
+            label={`${brandLabel(Brand.LOLARK)} revenue`}
+            value={formatLkr(brandData.get(Brand.LOLARK)?.revenue ?? 0)}
+            detail="Sales after discounts"
           />
           <MetricCard
-            label={brandLabel(Brand.MUNDHANAI)}
-            value={formatLkr(brandRevenue.get(Brand.MUNDHANAI) ?? "0")}
-            detail="Revenue at checkout"
+            label={`${brandLabel(Brand.LOLARK)} profit`}
+            value={formatLkr(brandData.get(Brand.LOLARK)?.profit ?? 0)}
+            detail="Revenue minus product cost"
+          />
+          <MetricCard
+            label={`${brandLabel(Brand.MUNDHANAI)} revenue`}
+            value={formatLkr(brandData.get(Brand.MUNDHANAI)?.revenue ?? 0)}
+            detail="Sales after discounts"
+          />
+          <MetricCard
+            label={`${brandLabel(Brand.MUNDHANAI)} profit`}
+            value={formatLkr(brandData.get(Brand.MUNDHANAI)?.profit ?? 0)}
+            detail="Revenue minus product cost"
           />
         </div>
       </section>
@@ -178,7 +193,7 @@ export default async function DashboardPage() {
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">Latest activity</p>
             <h2 id="recent-heading" className="mt-1 text-lg font-bold text-zinc-100">Recent orders</h2>
           </div>
-          <span className="text-xs text-zinc-600">Last 10</span>
+          <Link href="/orders" className="text-xs font-bold uppercase tracking-[0.12em] text-white underline underline-offset-4 hover:text-zinc-300">View all</Link>
         </div>
 
         {recentOrders.length === 0 ? (
@@ -195,6 +210,7 @@ export default async function DashboardPage() {
                   <th className="px-4 py-3 font-bold">Channel</th>
                   <th className="px-4 py-3 text-right font-bold">Items</th>
                   <th className="px-4 py-3 text-right font-bold">Total</th>
+                  <th className="px-4 py-3 text-right font-bold">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -212,6 +228,9 @@ export default async function DashboardPage() {
                     </td>
                     <td className="px-4 py-4 text-right font-bold tabular-nums text-white">
                       {formatLkr(order.totalAmount.toString())}
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <DeleteOrderButton orderId={order.id} />
                     </td>
                   </tr>
                 ))}

@@ -498,6 +498,48 @@ export async function addStallExpense(
   }
 }
 
+export async function updateStallExpense(
+  expenseId: string,
+  input: ExpenseInput,
+): Promise<ActionResult> {
+  const unauthorized = await authorize();
+  if (unauthorized) return unauthorized;
+
+  try {
+    const id = requiredText(expenseId, "Expense ID", 64);
+    const popupStallId = requiredText(input.popupStallId, "Pop-up stall", 64);
+    const category = parseExpenseCategory(input.category);
+    const amount = parsePrice(input.amount);
+    const incurredAt = parseDate(input.incurredAt, "Expense date");
+    const note = optionalText(input.note, "Note", 240);
+
+    await prisma.expense.update({
+      where: { id },
+      data: { popupStallId, category, amount, incurredAt, note },
+    });
+    revalidatePath("/stalls");
+    return { ok: true, message: "Expense updated.", data: null };
+  } catch (error) {
+    return safeFailure(error);
+  }
+}
+
+export async function deleteStallExpense(
+  expenseId: string,
+): Promise<ActionResult> {
+  const unauthorized = await authorize();
+  if (unauthorized) return unauthorized;
+
+  try {
+    const id = requiredText(expenseId, "Expense ID", 64);
+    await prisma.expense.delete({ where: { id } });
+    revalidatePath("/stalls");
+    return { ok: true, message: "Expense removed.", data: null };
+  } catch (error) {
+    return safeFailure(error);
+  }
+}
+
 export async function checkout(
   input: CheckoutInput,
 ): Promise<ActionResult<{ orderId: string }>> {
@@ -704,6 +746,51 @@ export async function checkout(
     if (!orderId) throw new Error("Checkout did not complete.");
     refreshInventoryViews();
     return { ok: true, message: "Sale completed.", data: { orderId } };
+  } catch (error) {
+    return safeFailure(error);
+  }
+}
+
+export async function deleteOrder(orderId: string): Promise<ActionResult> {
+  const unauthorized = await authorize();
+  if (unauthorized) return unauthorized;
+
+  try {
+    const id = requiredText(orderId, "Order ID", 64);
+    
+    await prisma.$transaction(
+      async (transaction) => {
+        const order = await transaction.order.findUnique({
+          where: { id },
+          include: { items: true },
+        });
+
+        if (!order) throw new InputError("Order not found.");
+
+        for (const item of order.items) {
+          const product = await transaction.product.update({
+            where: { id: item.productId },
+            data: { stockQuantity: { increment: item.quantity } },
+          });
+
+          await transaction.stockMovement.create({
+            data: {
+              productId: product.id,
+              type: StockMovementType.CORRECTION,
+              quantityChange: item.quantity,
+              balanceAfter: product.stockQuantity,
+              note: "Sale reverted",
+            },
+          });
+        }
+
+        await transaction.order.delete({ where: { id } });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
+
+    refreshInventoryViews();
+    return { ok: true, message: "Order removed.", data: null };
   } catch (error) {
     return safeFailure(error);
   }

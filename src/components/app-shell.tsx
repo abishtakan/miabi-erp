@@ -4,6 +4,7 @@ import { logoutAction } from "@/app/actions";
 
 const navigation = [
   { href: "/", label: "Dashboard", shortLabel: "Overview" },
+  { href: "/orders", label: "Orders", shortLabel: "Orders" },
   { href: "/pos", label: "Point of sale", shortLabel: "POS" },
   { href: "/inventory", label: "Inventory", shortLabel: "Stock" },
   { href: "/stalls", label: "Pop-up stalls", shortLabel: "Stalls" },
@@ -54,7 +55,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-4 border-t border-zinc-800 bg-zinc-950 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-zinc-800 bg-zinc-950 md:hidden"
         aria-label="Mobile navigation"
       >
         {navigation.map((item) => (

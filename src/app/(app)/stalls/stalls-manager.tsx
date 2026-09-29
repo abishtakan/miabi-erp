@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import {
   addStallExpense,
   createPopupStall,
+  deleteStallExpense,
   setPopupStallActive,
   updatePopupStall,
+  updateStallExpense,
   type ActionResult,
   type ExpenseInput,
   type PopupStallInput,
@@ -41,7 +43,7 @@ type RecentExpense = {
 
 type Panel =
   | { type: "stall"; stall?: StallSummary }
-  | { type: "expense"; popupStallId?: string }
+  | { type: "expense"; popupStallId?: string; editExpense?: RecentExpense }
   | null;
 
 const fieldClass =
@@ -151,7 +153,17 @@ export function StallsManager({
       incurredAt: new Date(`${date}T12:00:00+05:30`).toISOString(),
       note: String(formData.get("note") ?? ""),
     };
-    run(addStallExpense(input));
+    if (panel?.type === "expense" && panel.editExpense) {
+      run(updateStallExpense(panel.editExpense.id, input));
+    } else {
+      run(addStallExpense(input));
+    }
+  }
+
+  function handleDeleteExpense(expense: RecentExpense) {
+    if (window.confirm("Are you sure you want to delete this expense?")) {
+      run(deleteStallExpense(expense.id));
+    }
   }
 
   function toggleStall(stall: StallSummary) {
@@ -160,6 +172,7 @@ export function StallsManager({
   }
 
   const editStall = panel?.type === "stall" ? panel.stall : undefined;
+  const editExpense = panel?.type === "expense" ? panel.editExpense : undefined;
   const expenseStallId =
     panel?.type === "expense" && panel.popupStallId
       ? panel.popupStallId
@@ -231,38 +244,38 @@ export function StallsManager({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">Event cost</p>
-              <h2 className="mt-1 text-xl font-bold text-white">Record expense</h2>
+              <h2 className="mt-1 text-xl font-bold text-white">{editExpense ? "Edit expense" : "Record expense"}</h2>
             </div>
             <button className={secondaryButton} onClick={() => setPanel(null)} type="button">Cancel</button>
           </div>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className="text-xs font-bold uppercase tracking-[0.12em] text-zinc-400 sm:col-span-2">
               Pop-up stall
-              <select className={`${fieldClass} mt-2 normal-case`} defaultValue={expenseStallId} name="popupStallId" required>
+              <select className={`${fieldClass} mt-2 normal-case`} defaultValue={editExpense?.popupStallId ?? expenseStallId} name="popupStallId" required>
                 {stalls.map((stall) => <option key={stall.id} value={stall.id}>{stall.name}{stall.isActive ? "" : " · archived"}</option>)}
               </select>
             </label>
             <label className="text-xs font-bold uppercase tracking-[0.12em] text-zinc-400">
               Category
-              <select className={`${fieldClass} mt-2 normal-case`} defaultValue="STALL_FEE" name="category">
+              <select className={`${fieldClass} mt-2 normal-case`} defaultValue={editExpense?.category ?? "STALL_FEE"} name="category">
                 {Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </label>
             <label className="text-xs font-bold uppercase tracking-[0.12em] text-zinc-400">
               Amount · LKR
-              <input className={`${fieldClass} mt-2 normal-case`} inputMode="decimal" min="0.01" name="amount" placeholder="5000.00" required step="0.01" type="number" />
+              <input className={`${fieldClass} mt-2 normal-case`} defaultValue={editExpense?.amount} inputMode="decimal" min="0.01" name="amount" placeholder="5000.00" required step="0.01" type="number" />
             </label>
             <label className="text-xs font-bold uppercase tracking-[0.12em] text-zinc-400">
               Date
-              <input className={`${fieldClass} mt-2 normal-case`} defaultValue={todayInColombo()} name="incurredAt" required type="date" />
+              <input className={`${fieldClass} mt-2 normal-case`} defaultValue={editExpense ? toColomboInput(editExpense.incurredAt).slice(0, 10) : todayInColombo()} name="incurredAt" required type="date" />
             </label>
             <label className="text-xs font-bold uppercase tracking-[0.12em] text-zinc-400 sm:col-span-2 lg:col-span-3">
               Note · optional
-              <input className={`${fieldClass} mt-2 normal-case`} maxLength={240} name="note" placeholder="Table and electricity fee" />
+              <input className={`${fieldClass} mt-2 normal-case`} defaultValue={editExpense?.note ?? ""} maxLength={240} name="note" placeholder="Table and electricity fee" />
             </label>
           </div>
           <div className="mt-6 flex justify-end">
-            <button className="min-h-11 bg-white px-5 text-xs font-black uppercase tracking-[0.12em] text-black disabled:bg-zinc-700" disabled={pending} type="submit">{pending ? "Recording…" : "Record expense"}</button>
+            <button className="min-h-11 bg-white px-5 text-xs font-black uppercase tracking-[0.12em] text-black disabled:bg-zinc-700" disabled={pending} type="submit">{pending ? "Saving…" : editExpense ? "Save changes" : "Record expense"}</button>
           </div>
         </form>
       ) : null}
@@ -349,7 +362,7 @@ export function StallsManager({
           <div className="overflow-x-auto border border-zinc-800">
             <table className="w-full min-w-[680px] border-collapse text-left text-sm">
               <thead className="bg-zinc-950 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
-                <tr><th className="px-4 py-3">Date</th><th className="px-4 py-3">Stall</th><th className="px-4 py-3">Category</th><th className="px-4 py-3">Note</th><th className="px-4 py-3 text-right">Amount</th></tr>
+                <tr><th className="px-4 py-3">Date</th><th className="px-4 py-3">Stall</th><th className="px-4 py-3">Category</th><th className="px-4 py-3">Note</th><th className="px-4 py-3 text-right">Amount</th><th className="px-4 py-3 text-right">Actions</th></tr>
               </thead>
               <tbody>
                 {recentExpenses.map((expense) => (
@@ -359,6 +372,12 @@ export function StallsManager({
                     <td className="px-4 py-4"><Badge>{categoryLabels[expense.category]}</Badge></td>
                     <td className="max-w-64 truncate px-4 py-4 text-zinc-500">{expense.note || "—"}</td>
                     <td className="px-4 py-4 text-right font-bold tabular-nums text-white">{formatLkr(expense.amount)}</td>
+                    <td className="px-4 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button className="text-xs font-bold text-zinc-400 hover:text-white" onClick={() => { setPanel({ type: "expense", editExpense: expense }); setNotice(null); }} type="button">Edit</button>
+                        <button className="text-xs font-bold text-zinc-400 hover:text-red-400" onClick={() => handleDeleteExpense(expense)} type="button">Delete</button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
