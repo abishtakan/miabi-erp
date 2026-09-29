@@ -91,4 +91,4 @@ Do not run `prisma db push` against production. Use committed migrations so sche
 
 ## MVP security boundary
 
-The application uses a signed, HTTP-only shared-password session. It is appropriate for the small trusted team described in the PRD, but it does not provide individual identities, roles, password recovery, or per-user auditing. Move to managed user accounts before broadening access beyond that team.
+The application uses a signed, HTTP-only shared-password session. It is appropriate for the small trusted team described in the PRD, but it does not provide individual identities, roles, password recovery, or per-user auditing. Move to managed user accounts before broadening access beyond that team...
