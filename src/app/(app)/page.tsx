@@ -34,6 +34,7 @@ export default async function DashboardPage() {
     channelGroups,
     brandGroups,
     recentOrders,
+    inventoryProducts,
   ] = await Promise.all([
     prisma.order.aggregate({
       _count: { _all: true },
@@ -63,6 +64,10 @@ export default async function DashboardPage() {
         items: { select: { quantity: true } },
       },
     }),
+    prisma.product.findMany({
+      where: { stockQuantity: { gt: 0 } },
+      select: { brand: true, costPrice: true, stockQuantity: true },
+    }),
   ]);
 
   const brandData = new Map(
@@ -84,6 +89,15 @@ export default async function DashboardPage() {
       },
     ]),
   );
+
+  const inventoryCosts = {
+    [Brand.LOLARK]: 0,
+    [Brand.MUNDHANAI]: 0,
+  };
+  for (const p of inventoryProducts) {
+    inventoryCosts[p.brand] += Number(p.costPrice.toString()) * p.stockQuantity;
+  }
+
   const revenue = Number(summary._sum.totalAmount?.toString() ?? "0");
   const productCost = Number(summary._sum.costAmount?.toString() ?? "0");
   const stallExpenses = Number(expenseSummary._sum.amount?.toString() ?? "0");
@@ -157,6 +171,11 @@ export default async function DashboardPage() {
             detail="Revenue minus product cost"
           />
           <MetricCard
+            label={`${brandLabel(Brand.LOLARK)} inventory`}
+            value={formatLkr(inventoryCosts[Brand.LOLARK])}
+            detail="Current stock value"
+          />
+          <MetricCard
             label={`${brandLabel(Brand.MUNDHANAI)} revenue`}
             value={formatLkr(brandData.get(Brand.MUNDHANAI)?.revenue ?? 0)}
             detail="Sales after discounts"
@@ -165,6 +184,11 @@ export default async function DashboardPage() {
             label={`${brandLabel(Brand.MUNDHANAI)} profit`}
             value={formatLkr(brandData.get(Brand.MUNDHANAI)?.profit ?? 0)}
             detail="Revenue minus product cost"
+          />
+          <MetricCard
+            label={`${brandLabel(Brand.MUNDHANAI)} inventory`}
+            value={formatLkr(inventoryCosts[Brand.MUNDHANAI])}
+            detail="Current stock value"
           />
         </div>
       </section>
